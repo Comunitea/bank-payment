@@ -106,6 +106,7 @@ class PaymentOrderCreate(models.TransientModel):
                   ('date_maturity', '<=', self.duedate),
                   ('date_maturity', '=', False)]
         self.extend_payment_order_domain(payment, domain)
+        print domain
         # -- end account_direct_debit --
         lines = line_obj.search(domain)
         context = self.env.context.copy()
