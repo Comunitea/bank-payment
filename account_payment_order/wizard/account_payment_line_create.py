@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
-# © 2009 EduSense BV (<http://www.edusense.nl>)
-# © 2011-2013 Therp BV (<https://therp.nl>)
-# © 2014-2015 ACSONE SA/NV (<https://acsone.eu>)
-# © 2015-2016 Akretion (<https://www.akretion.com>)
-# License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
+# Copyright 2009 EduSense BV (<http://www.edusense.nl>)
+# Copyright 2011-2013 Therp BV (<http://therp.nl>)
+# Copyright 2014-2015 ACSONE SA/NV (<http://acsone.eu>)
+# Copyright 2015-2016 Akretion (<http://www.akretion.com>)
+# Copyright 2018 Tecnativa - Carlos Dauden
+# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from odoo import models, fields, api, _
 
@@ -40,6 +40,9 @@ class AccountPaymentLineCreate(models.TransientModel):
         ], string='Payment Mode')
     move_line_ids = fields.Many2many(
         'account.move.line', string='Move Lines')
+    allow_negative = fields.Boolean(
+        string="Allow Negative Move Lines",
+    )
 
     @api.model
     def default_get(self, field_list):
@@ -103,13 +106,21 @@ class AccountPaymentLineCreate(models.TransientModel):
             # Do not propose partially reconciled credit lines,
             # as they are deducted from a customer invoice, and
             # will not be refunded with a payment.
+            if not self.allow_negative:
+                domain.append(('credit', '>', 0))
             domain += [
-                ('credit', '>', 0),
-                ('account_id.internal_type', 'in', ['payable', 'receivable'])]
+                #  '|',
+                ('account_id.internal_type', 'in', ['payable', 'receivable']),
+                #  '&',
+                #  ('account_id.internal_type', '=', 'receivable'),
+                #  ('reconcile_partial_id', '=', False),  # TODO uncomment
+            ]
         elif self.order_id.payment_type == 'inbound':
+            if not self.allow_negative:
+                domain.append(('debit', '>', 0))
             domain += [
-                ('debit', '>', 0),
-                ('account_id.internal_type', 'in', ['receivable', 'payable'])]
+                ('account_id.internal_type', 'in', ['receivable', 'payable']),
+                ]
         # Exclude lines that are already in a non-cancelled
         # and non-uploaded payment order; lines that are in a
         # uploaded payment order are proposed if they are not reconciled,
@@ -139,7 +150,7 @@ class AccountPaymentLineCreate(models.TransientModel):
 
     @api.onchange(
         'date_type', 'move_date', 'due_date', 'journal_ids', 'invoice',
-        'target_move', 'allow_blocked', 'payment_mode', 'partner_ids')
+        'target_move', 'allow_blocked', 'payment_mode', 'allow_negative')
     def move_line_filters_change(self):
         domain = self._prepare_move_line_domain()
         res = {'domain': {'move_line_ids': domain}}
