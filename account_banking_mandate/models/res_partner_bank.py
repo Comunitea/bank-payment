@@ -20,8 +20,11 @@ class ResPartnerBank(models.Model):
         for rpb in self:
             if self.env['account.banking.mandate'].sudo().search(
                     [('partner_bank_id', '=', rpb.id),
-                     ('company_id', '!=', rpb.company_id.id)], limit=1):
+                     ('company_id', '!=', rpb.sudo().company_id.id)], limit=1)\
+                    and rpb.sudo().company_id:
                 raise ValidationError(
                     _("You cannot change the company of Partner Bank %s, "
                       "as there exists mandates referencing it that "
-                      "belong to another company.") % (rpb.display_name,))
+                      "belong to another company.") % (rpb.sudo(
+
+                    ).display_name,))
